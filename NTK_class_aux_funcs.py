@@ -171,6 +171,7 @@ class NTK_shallow:
 
         #compute current value of f and store it
         self.f = NTK_output(self.a,self.W,self.X)
+        self.init_delta_signs = np.sign(self.f - self.y)
 
         #create object to store evolution of inner weights over time
         self.W_iters = [np.copy(self.W)]
@@ -234,14 +235,37 @@ class NTK_shallow:
 
     #--------------Simulate num steps of lenght t--------------
 
-    def run_sim(self,t,num):
+    def run_sim(self,t,num,batch_size=100,timeout_batch_num=20):
         """
         INPUT: 1)t: size of time step per iteration
                2)num: number of steps for the simulation
         OUTPUT: No output, runs the simulation of the given parameters 
         """
-        for i in range(num):
-            self.update_weights(t)
+        if num == 0:
+            min_a = np.min(self.a)
+            not_changed_sign = [i for i in range(self.n)]
+            steps = 0
+            while steps < timeout_batch_num-1:
+                for i in range(batch_size):
+                    self.update_weights(t)
+                for i in not_changed_sign:
+                    if np.sign(self.f[i] - self.y[i]) != self.init_delta_signs[i]:
+                        not_changed_sign.remove(i)
+                    elif np.abs(self.f[i] - self.y[i]) <= (min_a)/(math.sqrt(self.m)):
+                        not_changed_sign.remove(i)
+                if len(not_changed_sign) == 0:
+                    print("Converged!")
+                    break 
+                steps += 1
+            for i in range(batch_size):
+                self.update_weights(t)
+            steps += 1
+            return(steps*batch_size)
+
+        else:
+            for i in range(num):
+                self.update_weights(t)
+            return(num)
             
     #----------------------------
 
